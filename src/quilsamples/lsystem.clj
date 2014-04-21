@@ -1,4 +1,4 @@
-(ns quilsample.lsystem
+(ns quilsamples.lsystem
   (:use quil.core))
 
 (defrecord Turtle [x y angle pen])
@@ -60,20 +60,36 @@
       trtl
       (let [[fst & rst] source
             action (fst translation-table)]
+        
+  (stroke (get-next-color!))
         (recur rst (action trtl))))))
         
+(def get-next-color! 
+  (let [hue (atom 0)
+        next-hue (fn [h] (if (<= 100.0 h) 0.0 (+ h 0.1)))]
+    (fn [] (color (swap! hue next-hue) 80 80))))
 
 (defn setup [] 
   (smooth)
+  (background 0)
   (stroke-weight 1)
-  (stroke (color 200 100 0))
-  (-> [:f]
-      (rewrite-n 4)
-      (draw-cells (init-turtle 500 500))))
+  (color-mode :hsb 100 100 100)
+  (stroke (get-next-color!))
+  (set-state! :order (atom (rewrite-n [:f] 4))
+              :turtle (atom (init-turtle 500 500))))
+
+(defn draw []
+  (stroke (get-next-color!))
+  (let [order (state :order)
+        turtle (state :turtle)
+        [current rest-cells] (split-with #(not (= :f %)) @order)]
+    (swap! turtle #(draw-cells (conj current :f) %))
+    (reset! order (rest rest-cells))))
 
 (defsketch recurtree
-  :title "tree"
+  :title "LSystem"
   :size [500 500]
-  :setup setup)
+  :setup setup
+  :draw draw)
 
 (defn -main [] ())
