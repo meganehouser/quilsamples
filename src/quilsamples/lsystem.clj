@@ -22,6 +22,7 @@
         angle (+ (:angle t) PI)
         [new-x new-y] (get-new-coordinates x y angle dist)]
     (when (true? (:pen t))
+      (stroke (get-next-color!))
       (line x y new-x new-y))
     (assoc t :x new-x :y new-y)))
 
@@ -34,7 +35,7 @@
 
 (def translation-table
   {:f (partial #(->> % (pendown) (foward 2)))
-   :b (partial backward 5)
+   :b (partial #(->> % (penup) (backward 5)))
    :r (partial right 90)
    :l (partial left 90)})
 
@@ -60,8 +61,6 @@
       trtl
       (let [[fst & rst] source
             action (fst translation-table)]
-        
-  (stroke (get-next-color!))
         (recur rst (action trtl))))))
         
 (def get-next-color! 
@@ -69,24 +68,36 @@
         next-hue (fn [h] (if (<= 100.0 h) 0.0 (+ h 0.1)))]
     (fn [] (color (swap! hue next-hue) 80 80))))
 
+(defn split-move [actions]
+  (let [[current rest-actions] (split-with #(not (= :f %)) actions)]
+    (condp = (first rest-actions)
+      :f [(concat current [:f]) (rest rest-actions)]
+      nil [current ()]
+      [current rest-actions])))
+
+(defn split-move-n [actions n]
+  (loop [moves [] rest-actions actions times n]
+    (if (= times 0)
+      [moves rest-actions]
+      (let [[move nexts] (split-move rest-actions)]
+        (recur (concat moves move) nexts (dec times))))))
+
 (defn setup [] 
   (smooth)
   (background 0)
   (stroke-weight 1)
   (color-mode :hsb 100 100 100)
-  (stroke (get-next-color!))
   (set-state! :order (atom (rewrite-n [:f] 4))
               :turtle (atom (init-turtle 500 500))))
 
 (defn draw []
-  (stroke (get-next-color!))
   (let [order (state :order)
         turtle (state :turtle)
-        [current rest-cells] (split-with #(not (= :f %)) @order)]
-    (swap! turtle #(draw-cells (conj current :f) %))
-    (reset! order (rest rest-cells))))
+        [current rest-cells] (split-move-n @order 10)]
+    (swap! turtle #(draw-cells current %))
+    (reset! order rest-cells)))
 
-(defsketch recurtree
+(defsketch lsystem 
   :title "LSystem"
   :size [500 500]
   :setup setup
