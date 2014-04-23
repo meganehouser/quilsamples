@@ -5,6 +5,11 @@
 
 (defn init-turtle [x y]
   (->Turtle x y (radians 0) true))
+        
+(def get-next-color! 
+  (let [hue (atom 0)
+        next-hue (fn [h] (if (<= 100.0 h) 0.0 (+ h 0.1)))]
+    (fn [] (color (swap! hue next-hue) 80 80))))
 
 (defn get-new-coordinates [x y angle dist]
   (let [new-x (+ (* (cos angle) dist) x)
@@ -62,24 +67,18 @@
       (let [[fst & rst] source
             action (fst translation-table)]
         (recur rst (action trtl))))))
-        
-(def get-next-color! 
-  (let [hue (atom 0)
-        next-hue (fn [h] (if (<= 100.0 h) 0.0 (+ h 0.1)))]
-    (fn [] (color (swap! hue next-hue) 80 80))))
 
-(defn split-move [actions]
-  (let [[current rest-actions] (split-with #(not (= :f %)) actions)]
-    (condp = (first rest-actions)
-      :f [(concat current [:f]) (rest rest-actions)]
-      nil [current ()]
-      [current rest-actions])))
+(defn split-until [w coll]
+  (let [i (.indexOf coll w)]
+    (if (= i -1)
+      [coll []]
+      [(take (inc i) coll) (drop (inc i) coll)])))
 
 (defn split-move-n [actions n]
   (loop [moves [] rest-actions actions times n]
     (if (= times 0)
       [moves rest-actions]
-      (let [[move nexts] (split-move rest-actions)]
+      (let [[move nexts] (split-until :f rest-actions)]
         (recur (concat moves move) nexts (dec times))))))
 
 (defn setup [] 
