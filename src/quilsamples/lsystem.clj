@@ -1,10 +1,21 @@
 (ns quilsamples.lsystem
   (:use quil.core))
 
+(def turtles (atom []))
+
 (defrecord Turtle [x y angle pen])
 
 (defn init-turtle [x y]
   (->Turtle x y (radians 0) true))
+
+(defn push-turtle! [turtle]
+  (swap! turtles #(conj % turtle))
+  turtle)
+
+(defn pop-turtle! []
+  (let [turtle (peek @turtles)]
+    (reset! turtles (pop @turtles))
+    turtle))
         
 (def get-next-color! 
   (let [hue (atom 0)
@@ -40,32 +51,41 @@
 
 (def translation-table
   {:f (partial #(->> % (pendown) (foward 2)))
-   :b (partial #(->> % (penup) (backward 5)))
    :r (partial right 90)
    :l (partial left 90)})
 
 (def rewrite-rule 
   {:f [:f :r :f :l :f :l :f :r :f]})
 
-(defn rewrite [cells]
+(def tree-translation-table
+  {:f (partial #(->> % (pendown) (foward 8)))
+   :r (partial right 20)
+   :l (partial left 20)
+   :i push-turtle!
+   :o (fn [t] (pop-turtle!))})
+
+(def rewrite-tree-rule
+  {:f [:f :f :l :i :l :f :f :f :o :r :i :r :f :l :f :l :f :o]})
+
+(defn rewrite [cells rule]
     (loop [source cells dest []]
       (if (empty? source)
-        (reverse (flatten dest))
+        (flatten dest)
         (let [[fst & rst] source
-              cell (if-let [c (fst rewrite-rule)] c fst)]
-          (recur rst (cons cell dest))))))
+              cell (if-let [c (fst rule)] c fst)]
+          (recur rst (conj dest cell))))))
 
-(defn rewrite-n [cells n]
+(defn rewrite-n [cells rule n]
   (if (= n 0)
-    (rewrite cells)
-    (recur (rewrite cells) (dec n))))
+    (rewrite cells rule)
+    (recur (rewrite cells rule) rule (dec n))))
 
-(defn draw-cells [cells turtle]
+(defn draw-cells [cells turtle table]
   (loop [source cells trtl turtle]
     (if (empty? source)
       trtl
       (let [[fst & rst] source
-            action (fst translation-table)]
+            action (fst table)]
         (recur rst (action trtl))))))
 
 (defn split-until [w coll]
@@ -86,14 +106,22 @@
   (background 0)
   (stroke-weight 1)
   (color-mode :hsb 100 100 100)
-  (set-state! :order (atom (rewrite-n [:f] 4))
-              :turtle (atom (init-turtle 500 500))))
+  (set-state! :order (atom (rewrite-n [:f] rewrite-rule 4))
+              :turtle (atom (init-turtle 500 500))
+              :tree-order (atom (rewrite-n [:f] rewrite-tree-rule 3))
+              :tree-turtle (atom (right 90 (init-turtle 250 500)))))
 
 (defn draw []
   (let [order (state :order)
         turtle (state :turtle)
         [current rest-cells] (split-move-n @order 10)]
-    (swap! turtle #(draw-cells current %))
+    (swap! turtle #(draw-cells current % translation-table))
+    (reset! order rest-cells))
+  
+  (let [order (state :tree-order)
+        turtle (state :tree-turtle)
+        [current rest-cells] (split-move-n @order 10)]
+    (swap! turtle #(draw-cells current % tree-translation-table))
     (reset! order rest-cells)))
 
 (defsketch lsystem 
