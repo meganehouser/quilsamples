@@ -1,6 +1,6 @@
-(ns quilsamples.geometry.lines
+(ns quilsamples.segments
   (:use quil.core
-        quilsamples.geometry))
+        quilsamples.geometry.geometry))
 
 (defn line-segment [lseg]
   (when (not (nil? lseg))

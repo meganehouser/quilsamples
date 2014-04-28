@@ -1,4 +1,4 @@
-(ns quilsamples.geometry
+(ns quilsamples.geometry.geometry
   (:use quil.core))
 
 ; from http://gihyo.jp/dev/serial/01/geometry
